@@ -31,6 +31,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <QWinWidget>
 #include <QStyleFactory>
 
+// [Cecil] Classics Patch
+#include <ClassicsPatch/DynamicLoader.inl>
+
 #ifdef _DEBUG
 #undef new
 #define new DEBUG_NEW
@@ -228,6 +231,11 @@ CModelerApp::~CModelerApp()
   }
   m_WorkingPatches.clear();
 
+  // [Cecil] Clean up the core
+  if (_bClassicsPatchLoaded) {
+    _patch._Shutdown();
+  }
+
   SE_EndEngine();
 }
 
@@ -291,9 +299,27 @@ BOOL CModelerApp::SubInitInstance()
     RUNTIME_CLASS(CModelerView));
   AddDocTemplate(pDocTemplate);
 
+  // [Cecil] Try to load Classics Patch
+  LoadClassicsPatch();
+
+  // [Cecil] Prepare the application
+  if (_bClassicsPatchLoaded) {
+    // Mark as a modeler
+    _patch._Setup(k_EClassicsPatchAppType_Modeler);
+
+    // Function patches
+    _patch._PreInitPatches("FileSystem");
+    _patch._PreInitPatches("UnpageStreams");
+  }
+
   // initialize engine, without network
   SE_InitEngine("");  // DO NOT SPECIFY NAME HERE!
   SE_LoadDefaultFonts();
+
+  // [Cecil] Initialize the core
+  if (_bClassicsPatchLoaded) {
+    _patch._Init();
+  }
 
   // create main MDI Frame window
   CMainFrame* pMainFrame = new CMainFrame;
@@ -353,7 +379,12 @@ BOOL CModelerApp::SubInitInstance()
   
   // create temporary directory to contain copy/paste mapping all
   CreateDirectoryA( _fnmApplicationPath + "Temp\\", NULL);
-  
+
+  // [Cecil] Load needed plugins
+  if (_pAPI != NULL) {
+    _pAPI->Plugins()->LoadPlugins(k_EPluginFlagTools);
+  }
+
   // try to
   try
   { // load lamp model

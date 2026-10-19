@@ -35,6 +35,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <sys/utime.h>
 #include <process.h>
 
+// [Cecil] Classics Patch
+#include <ClassicsPatch/DynamicLoader.inl>
 
 #ifdef _DEBUG
 #undef new
@@ -633,16 +635,50 @@ BOOL CWorldEditorApp::SubInitInstance()
   Enable3dControlsStatic();  // Call this when linking to MFC statically
 #endif
 
+  // [Cecil] Try to load Classics Patch
+  LoadClassicsPatch();
+
+  // [Cecil] Prepare the application
+  if (_bClassicsPatchLoaded) {
+    // Mark as an editor
+    _patch._Setup(k_EClassicsPatchAppType_Editor);
+
+    // Function patches
+    _patch._PreInitPatches("FileSystem");
+    _patch._PreInitPatches("UnpageStreams");
+  }
+
   // initialize entire engine
   SE_InitEngine("SeriousEditor");
   SE_LoadDefaultFonts();
   SetFileRequesterCallback(&CAPI_FileRequester);
 
+  // [Cecil] Initialize the patch
+  if (_bClassicsPatchLoaded) {
+    // Initialize the core
+    _patch._Init();
+
+    // Function patches
+    CPutString("--- Editor: Intercepting Engine functions ---\n");
+    _patch._PostInitPatches("CorePatches");
+    CPutString("--- Done! ---\n");
+
+    // Load the virtual API
+    LoadClassicsPatchVirtualAPI();
+  }
+
   // settings will be saved into registry instead of ini file
   if (_strModExt=="") {
     SetRegistryKey( CString("SeriousEngine"));
   } else {
-    SetRegistryKey( CString(static_cast<const char*>("SeriousEngine\\"+_strModExt)));
+    // [Cecil] Use default registry if using custom libraries
+    if (_pAPI != NULL) {
+      CTString strVanillaExt = _pAPI->Core()->IsCustomModActive() ? CTString(_pAPI->Core()->GetVanillaExt()) : _strModExt;
+      SetRegistryKey( CString(static_cast<const char*>("SeriousEngine\\" + strVanillaExt)));
+
+    } else {
+      SetRegistryKey( CString(static_cast<const char*>("SeriousEngine\\"+_strModExt)));
+    }
   }
 
   CPrintF("%s", static_cast<const char*>(cmd_strOutput));
@@ -804,6 +840,11 @@ BOOL CWorldEditorApp::SubInitInstance()
 
   // create temporary directory to contain undo files
   CreateDirectoryA( _fnmApplicationPath + "Temp\\", NULL);
+
+  // [Cecil] Load needed plugins after the Game library
+  if (_pAPI != NULL) {
+    _pAPI->Plugins()->LoadPlugins(k_EPluginFlagEditor);
+  }
 
   // try to
   try
@@ -2203,6 +2244,11 @@ int CWorldEditorApp::ExitInstance()
 
   m_pbpoClipboardPolygon.reset();
   m_pbpoPolygonWithDeafultValues.reset();
+
+  // [Cecil] Clean up the core
+  if (_bClassicsPatchLoaded) {
+    _patch._Shutdown();
+  }
 
   // end entire engine
   SE_EndEngine();
