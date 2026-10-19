@@ -15,9 +15,12 @@
 	branch = main
 [submodule "Sources/SeriousEngineCAPI"]
 	path = Sources/SeriousEngineCAPI
-	url = https://github.com/SeriousAlexej/SeriousEngineCAPI.git
+	url = https://github.com/SamClassicPatch/SeriousEngineCAPI.git
 	branch = master
 [submodule "Sources/SeriousEngineCppAPI"]
 	path = Sources/SeriousEngineCppAPI
-	url = https://github.com/SeriousAlexej/SeriousEngineCppAPI.git
+	url = https://github.com/SamClassicPatch/SeriousEngineCppAPI.git
 	branch = master
+[submodule "Sources/ClassicsPatchAPI"]
+	path = Sources/ClassicsPatchAPI
+	url = https://github.com/SamClassicPatch/API.git
